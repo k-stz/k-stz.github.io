@@ -27,3 +27,4 @@
 * TODO creating a link to another file
   [[/home/k-stz/sol_sanctum/k-stz.github.io/index.html][click-here]]
   
+  [[/home/k-stz/sol_sanctum/k-stz.github.io/index.html][sanity-check-click-here]]
