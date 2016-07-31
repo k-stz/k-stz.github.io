@@ -25,6 +25,4 @@
 | Darstellungsmatrix          |                          |
 
 * TODO creating a link to another file
-  [[index.html][relative-link-by-hand-click-here]]
-  
   [[/home/k-stz/sol_sanctum/k-stz.github.io/index.html][sanity-check-click-here]]
