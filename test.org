@@ -25,4 +25,5 @@
 | Darstellungsmatrix          |                          |
 
 * TODO creating a link to another file
-  [[/home/k-stz/sol_sanctum/k-stz.github.io/index.html][sanity-check-click-here]]
+  [[/home/k-stz/sol_sanctum/k-stz.github.io/index.html][sanity-check-click-here]]  // NO, doesn't work with C-c C-l links!
+  
