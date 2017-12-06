@@ -24,6 +24,6 @@
 | Abbildungsmatrix,           |                          |
 | Darstellungsmatrix          |                          |
 
-* TODO creating a link to another file
-  [[./index.html][BACK to index.html]]  // NO, doesn't work with C-c C-l links!
+* DONE creating a link to another file
+  [[./index.html][BACK to index.html]]  // <- works !
   
