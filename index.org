@@ -1,0 +1,40 @@
+* Website title: "Title and some Unicodes: (λx. (* x x)) æſðđ»«¢„¶€@ł"
+  Text under title
+
+* Some text
+  study english pronunciation
+  I will teach you in my verse,
+  Sounds like corpse corps horse and worse.
+  I will keep you, Suzy, busy,
+  make your head with heat grow dizzy
+  tear in eye your dress will tear
+  so shall I! Oh hear my prayer
+
+
+  
+* Testing pictures "grabby-arm.png"
+  [[./grabby-arm.png]]
+
+* A link to the file "test.html"
+  [[./test.html][Link to the test file, click here, blaaaaah]]
+
+* common-lisp/memory.html
+  - [[./common-lisp/notes.html][memory.html file, click here]]
+  - [[./common-lisp/notes.org][memory.org file, click hhhereere instead]]
+
+
+
+* TODO jobs list
+  - try Jekyll
+  - read into https://help.github.com/categories/github-pages-basics/
+
+
+* DONE don' to this!
+  /slanted/ *bold-face* +crossed-out+
+  - New heading
+    + nested heading
+      * rly rly nested heading
+
+* <-----THE END.----------->
+
+  
