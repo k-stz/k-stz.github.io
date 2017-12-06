@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 <title>notes</title>
-<!-- 2017-12-06 Wed 16:45 -->
+<!-- 2017-12-06 Wed 21:45 -->
 <meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta  name="generator" content="Org-mode" />
 <style type="text/css">
@@ -251,7 +251,7 @@ if we have 64bit registers:
 </p>
 
 <p>
-Why is it 63bits rather than 64!?
+<b>Why is it 63bits rather than 64!?</b>
 </p>
 <ul class="org-ul">
 <li>According to the implementation, atleast one bit, as in this case, is reserved for
@@ -261,19 +261,71 @@ the <b>n-fixnum-tag-bits</b>, which is used <span class="underline">to determine
 </ul>
 
 <p>
-Then, why do we take a bit, to test if something is a fixnum?
+<b>Then, why do we take a bit, to test if something is a fixnum?</b>
 </p>
 <ul class="org-ul">
-<li>TODO
+<li>Ok, so this is really cool. In 64bit SBCL, every lisp object has type information, this
+information at least for some instances, <span class="underline">is already part of the pointer to them</span>.
+
+<p>
+For a fixnum a pointer ending (the least significant bit) with a '0' bit reads the
+other 63bits and interprets them as an immediate fixnum value!!!
+</p>
+
+<p>
+If the least significant bit is not a '0' <span class="underline">then</span> the first 4 bits are interpreted
+as the type! And the rest of the pointer bits are the address to a dword in the lisp
+heap!
+</p>
 </li>
 </ul>
+
+<p>
+<b>Why can we take 4bits of the address and use them for type information</b>?
+</p>
+<ul class="org-ul">
+<li>Like aren't we sacrificing a lot of addresses this way? This is fixed by having
+data be double word alligned in memory. In sbcl a double word is 2x64=128bits or
+16 bytes. So the address points to those dword aligned 'pages' and, not to 
+the individual 16 bytes within, so the least significant 4bits (that now can't
+point to the bytes) are used to store the type information for this dword lisp-data!
+
+<p>
+This concept is known as <b>Tagged pointers</b> !!!
+</p>
+</li>
+</ul>
+
+<p>
+<b>A cool example of the immediate pointer=fixnum concept</b>
+<b>TODO</b> I think it is worth trying to understand the assembly of this microexample!
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp"><span style="color: #99968b;">;; </span><span style="color: #99968b;">Fixnums are immediately stored in the pointer information</span>
+
+(<span style="color: #8ac6f2; font-weight: bold;">defun</span> <span style="color: #cae682;">foo</span> (x)
+  (+ x 7))
+
+(disassemble 'foo)
+<span style="color: #99968b;">;; </span><span style="color: #99968b;">==&gt; ; disassembly for FOO:</span>
+<span style="color: #99968b;">;; </span><span style="color: #99968b;">(...)</span>
+<span style="color: #99968b;">;; </span><span style="color: #99968b;">The immediate value 14 is in binary #b1110, because 7 is in binary #b111, the 0 is</span>
+<span style="color: #99968b;">;; </span><span style="color: #99968b;">the fixnum immediate pointer tag informatoin!!</span>
+<span style="color: #99968b;">;; </span><span style="color: #99968b;">TODO: I think it is worth trying to understand the assembly of this microexample!</span>
+<span style="color: #99968b;">; </span><span style="color: #99968b;">39:       BF0E000000       MOV EDI, 14                      ; no-arg-parsing entry point</span>
+<span style="color: #99968b;">; </span><span style="color: #99968b;">3E:       488BD1           MOV RDX, RCX</span>
+<span style="color: #99968b;">; </span><span style="color: #99968b;">41:       41BBF004B021     MOV R11D, #x21B004F0             ; GENERIC-+</span>
+<span style="color: #99968b;">; </span><span style="color: #99968b;">47:       41FFD3           CALL R11</span>
+<span style="color: #99968b;">; </span><span style="color: #99968b;">4A:       488BE5           MOV RSP, RBP</span>
+<span style="color: #99968b;">; </span><span style="color: #99968b;">4D:       F8               CLC</span>
+<span style="color: #99968b;">; </span><span style="color: #99968b;">4E:       5D               POP RBP</span>
+<span style="color: #99968b;">; </span><span style="color: #99968b;">4F:       C3               RET</span>
+</pre>
 </div>
 </div>
 </div>
-
-
-
-
+</div>
 
 <div id="outline-container-sec-2-4" class="outline-3">
 <h3 id="sec-2-4"><span class="section-number-3">2.4</span> How long are memeory references valid?</h3>
@@ -298,7 +350,7 @@ memory references valid", the memory automatically be reclaimed.
 </div>
 </div>
 <div id="postamble" class="status">
-<p class="date">Created: 2017-12-06 Wed 16:45</p>
+<p class="date">Created: 2017-12-06 Wed 21:45</p>
 <p class="creator"><a href="http://www.gnu.org/software/emacs/">Emacs</a> 25.3.1 (<a href="http://orgmode.org">Org</a> mode 8.2.10)</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>

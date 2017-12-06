@@ -44,18 +44,55 @@
   So the range spans 2^63 values! (2^63-1 + 1, because we count 0), the question then is
   if we have 64bit registers:
 
-  Why is it 63bits rather than 64!?
+  *Why is it 63bits rather than 64!?*
   - According to the implementation, atleast one bit, as in this case, is reserved for
     the *n-fixnum-tag-bits*, which is used _to determine_ whether it is a _fixnum or_
     _not_!
     
-  Then, why do we take a bit, to test if something is a fixnum?
-  - TODO
+  *Then, why do we take a bit, to test if something is a fixnum?*
+  - Ok, so this is really cool. In 64bit SBCL, every lisp object has type information, this
+    information at least for some instances, _is already part of the pointer to them_.
     
+    For a fixnum a pointer ending (the least significant bit) with a '0' bit reads the
+    other 63bits and interprets them as an immediate fixnum value!!!
     
+    If the least significant bit is not a '0' _then_ the first 4 bits are interpreted
+    as the type! And the rest of the pointer bits are the address to a dword in the lisp
+    heap!
+
+  *Why can we take 4bits of the address and use them for type information*?
+  - Like aren't we sacrificing a lot of addresses this way? This is fixed by having
+    data be double word alligned in memory. In sbcl a double word is 2x64=128bits or
+    16 bytes. So the address points to those dword aligned 'pages' and, not to 
+    the individual 16 bytes within, so the least significant 4bits (that now can't
+    point to the bytes) are used to store the type information for this dword lisp-data!
+    
+    This concept is known as *Tagged pointers* !!!
+    
+  *A cool example of the immediate pointer=fixnum concept*
+  *TODO* I think it is worth trying to understand the assembly of this microexample!
+#+BEGIN_SRC lisp
+  ;; Fixnums are immediately stored in the pointer information
   
-    
-  
+  (defun foo (x)
+    (+ x 7))
+
+  (disassemble 'foo)
+  ;; ==> ; disassembly for FOO:
+  ;; (...)
+  ;; The immediate value 14 is in binary #b1110, because 7 is in binary #b111, the 0 is
+  ;; the fixnum immediate pointer tag informatoin!!
+  ;; TODO: I think it is worth trying to understand the assembly of this microexample!
+  ; 39:       BF0E000000       MOV EDI, 14                      ; no-arg-parsing entry point
+  ; 3E:       488BD1           MOV RDX, RCX
+  ; 41:       41BBF004B021     MOV R11D, #x21B004F0             ; GENERIC-+
+  ; 47:       41FFD3           CALL R11
+  ; 4A:       488BE5           MOV RSP, RBP
+  ; 4D:       F8               CLC
+  ; 4E:       5D               POP RBP
+  ; 4F:       C3               RET
+#+END_SRC
+        
 ** How long are memeory references valid?
    For as long as your code can access it by any means whatsoever. Only once this is not
    the case, the memory becomes /potential garbage/, and will be freed by the GC somewhere
