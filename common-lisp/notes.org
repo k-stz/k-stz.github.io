@@ -8,21 +8,6 @@
    - how long are memory references valid?
    - how to recycle memory when you done with it?
 
-  
-** Own assumption before reading about it
-   * how to request to allocate memory?
-     You can't directly request to allocate memory, its indirect:  whenever a Lisp expression
-     is evaluated, then memory is allocated for the various objects like "Strings",
-     #(vectors), Huge-numbers, (make-instance 'definitely-allocated)
-     
-   * how long are memory references valid?
-     Till nothing refers to it anymore, so If a Variable points to some data and it is
-     uninterned, and it isn't refereable in the SLIME history, then the GC can pick it
-     up afterwards anytime it wants
-   * how to recycle memory when you done with it?  Can't be done directly (maybe with
-     CFFI), it is done indirectly: Allocating new memory old, freed, memory can be reused
-
-
 ** Garbage Collector
    - Every Lisp implementation has a GC, no exception
    - The author calls the garbace collector, GC, a build-in library
