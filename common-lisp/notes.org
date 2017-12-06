@@ -1,0 +1,81 @@
+* While reading: "Lisp Outside the Box" by Nick Levine
+  https://www.nicklevine.org/lisp-book/
+
+* Memory
+
+** Which questions we want to answer:
+   - how to request to allocate memory?
+   - how long are memory references valid?
+   - how to recycle memory when you done with it?
+
+  
+** Own assumption before reading about it
+   * how to request to allocate memory?
+     You can't directly request to allocate memory, its indirect:  whenever a Lisp expression
+     is evaluated, then memory is allocated for the various objects like "Strings",
+     #(vectors), Huge-numbers, (make-instance 'definitely-allocated)
+     
+   * how long are memory references valid?
+     Till nothing refers to it anymore, so If a Variable points to some data and it is
+     uninterned, and it isn't refereable in the SLIME history, then the GC can pick it
+     up afterwards anytime it wants
+   * how to recycle memory when you done with it?  Can't be done directly (maybe with
+     CFFI), it is done indirectly: Allocating new memory old, freed, memory can be reused
+
+
+** Garbage Collector
+   - Every Lisp implementation has a GC, no exception
+   - The author calls the garbace collector, GC, a build-in library
+   - Pretty much everything said about the Common Lisp GC, in this chapter of the book,
+     applies to all the Lisp GCs, and is also relevant to other language GCs as well
+
+
+** When does allocation /almost/ always occur in Lisp? And what is the exception?
+   Whenever something gets new gets created, that is not *=#'EQ=* to anything that is
+   there already!
+
+   #+BEGIN_SRC lisp
+     (cons 1 2)
+     (make-instance 'animal)
+     (1+ most-positive-fixnum) ;; TODO why?
+     (read-line)
+   #+END_SRC
+
+   + The /notable/ Exception: 
+     1) /in most implementations/ _allocation doesn't occur when_ performing any arithmetic
+	involving *fixnums*, those are integers betwee *=most-negative-fixnum=* and
+	*=most-positive-fixnum=*, and so long the final result are all within this range,
+	you won't have allocated
+     
+*** What's the case for SBCL?
+    Before consulting the SBCL Documentation the constants are:
+
+#+BEGIN_SRC lisp
+  ;; tested on a 64bit machine, with 64bit SBCL version "1.4.1"
+  (= most-positive-fixnum 4611686018427387903 (1- (expt 2 62))) ;; ==> T
+  (= most-negative-fixnum -4611686018427387904 (- (expt 2 62))) ;; ==> T
+#+END_SRC
+
+  So the range spans 2^63 values! (2^63-1 + 1, because we count 0), the question then is
+  if we have 64bit registers:
+
+  Why is it 63bits rather than 64!?
+  - According to the implementation, atleast one bit, as in this case, is reserved for
+    the *n-fixnum-tag-bits*, which is used _to determine_ whether it is a _fixnum or_
+    _not_!
+    
+  Then, why do we take a bit, to test if something is a fixnum?
+  - TODO
+    
+    
+  
+    
+  
+** How long are memeory references valid?
+   For as long as your code can access it by any means whatsoever. Only once this is not
+   the case, the memory becomes /potential garbage/, and will be freed by the GC somewhere
+   in the future.
+
+** How to recycle memory?
+   Once the GC freed up some space because of the reasons stated under "How long are
+   memory references valid", the memory automatically be reclaimed.
