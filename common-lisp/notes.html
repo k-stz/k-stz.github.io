@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 <title>notes</title>
-<!-- 2017-12-06 Wed 21:45 -->
+<!-- 2017-12-08 Fri 00:11 -->
 <meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
 <meta  name="generator" content="Org-mode" />
 <style type="text/css">
@@ -149,10 +149,12 @@ for the JavaScript code in this tag.
 <li><a href="#sec-2-3">2.3. When does allocation <i>almost</i> always occur in Lisp? And what is the exception?</a>
 <ul>
 <li><a href="#sec-2-3-1">2.3.1. What's the case for SBCL?</a></li>
+<li><a href="#sec-2-3-2">2.3.2. (SBCL) Why tagged pointers?</a></li>
 </ul>
 </li>
-<li><a href="#sec-2-4">2.4. How long are memeory references valid?</a></li>
-<li><a href="#sec-2-5">2.5. How to recycle memory?</a></li>
+<li><a href="#sec-2-4">2.4. What does <i>consing</i> mean?</a></li>
+<li><a href="#sec-2-5">2.5. How long are memeory references valid?</a></li>
+<li><a href="#sec-2-6">2.6. How to recycle memory?</a></li>
 </ul>
 </li>
 </ul>
@@ -204,7 +206,7 @@ applies to all the Lisp GCs, and is also relevant to other language GCs as well
 <h3 id="sec-2-3"><span class="section-number-3">2.3</span> When does allocation <i>almost</i> always occur in Lisp? And what is the exception?</h3>
 <div class="outline-text-3" id="text-2-3">
 <p>
-Whenever something gets new gets created, that is not <b><code>#'EQ</code></b> to anything that is
+Whenever something new gets created, that is not <b><code>#'EQ</code></b> to anything that is
 there already!
 </p>
 
@@ -212,20 +214,19 @@ there already!
 
 <pre class="src src-lisp">(cons 1 2)
 (make-instance 'animal)
-(1+ most-positive-fixnum) <span style="color: #99968b;">;; </span><span style="color: #99968b;">TODO why?</span>
+(1+ most-positive-fixnum) <span style="color: #99968b;">;; </span><span style="color: #99968b;">why? see below</span>
 (read-line)
 </pre>
 </div>
 
+<p>
+<b>The <i>notable</i> Exception:</b>
+</p>
 <ul class="org-ul">
-<li>The <i>notable</i> Exception: 
-<ol class="org-ol">
 <li><i>in most implementations</i> <span class="underline">allocation doesn't occur when</span> performing any arithmetic
 involving <b>fixnums</b>, those are integers betwee <b><code>most-negative-fixnum</code></b> and
 <b><code>most-positive-fixnum</code></b>, and so long the final result are all within this range,
 you won't have allocated
-</li>
-</ol>
 </li>
 </ul>
 </div>
@@ -298,8 +299,11 @@ This concept is known as <b>Tagged pointers</b> !!!
 
 <p>
 <b>A cool example of the immediate pointer=fixnum concept</b>
-<b>TODO</b> I think it is worth trying to understand the assembly of this microexample!
 </p>
+<ul class="org-ul">
+<li><b>TODO</b> I think it is worth trying to understand the assembly of this microexample!
+</li>
+</ul>
 <div class="org-src-container">
 
 <pre class="src src-lisp"><span style="color: #99968b;">;; </span><span style="color: #99968b;">Fixnums are immediately stored in the pointer information</span>
@@ -311,7 +315,7 @@ This concept is known as <b>Tagged pointers</b> !!!
 <span style="color: #99968b;">;; </span><span style="color: #99968b;">==&gt; ; disassembly for FOO:</span>
 <span style="color: #99968b;">;; </span><span style="color: #99968b;">(...)</span>
 <span style="color: #99968b;">;; </span><span style="color: #99968b;">The immediate value 14 is in binary #b1110, because 7 is in binary #b111, the 0 is</span>
-<span style="color: #99968b;">;; </span><span style="color: #99968b;">the fixnum immediate pointer tag informatoin!!</span>
+<span style="color: #99968b;">;; </span><span style="color: #99968b;">the fixnum immediate pointer tag information!!</span>
 <span style="color: #99968b;">;; </span><span style="color: #99968b;">TODO: I think it is worth trying to understand the assembly of this microexample!</span>
 <span style="color: #99968b;">; </span><span style="color: #99968b;">39:       BF0E000000       MOV EDI, 14                      ; no-arg-parsing entry point</span>
 <span style="color: #99968b;">; </span><span style="color: #99968b;">3E:       488BD1           MOV RDX, RCX</span>
@@ -323,13 +327,137 @@ This concept is known as <b>Tagged pointers</b> !!!
 <span style="color: #99968b;">; </span><span style="color: #99968b;">4F:       C3               RET</span>
 </pre>
 </div>
+
+<p>
+<b>Another Tagged Pointer Example</b>
+</p>
+<div class="org-src-container">
+
+<pre class="src src-lisp">(setf *x* (1+ most-positive-fixnum)
+      *y* (1+ most-positive-fixnum))
+
+(eq *x* *y*) <span style="color: #99968b;">;; </span><span style="color: #99968b;">==&gt; NIL</span>
+
+<span style="color: #99968b;">;; </span><span style="color: #99968b;">But, use a value that is within the fixnum range:</span>
+(setf *x* 20
+      *y* 20)
+
+(eq *x* *y*) <span style="color: #99968b;">;; </span><span style="color: #99968b;">==&gt; T</span>
+
+<span style="color: #99968b;">;; </span><span style="color: #99968b;">Becaseu EQ compares pointers, and fixnums are immediately encoded</span>
+<span style="color: #99968b;">;; </span><span style="color: #99968b;">in the pointer, so in effect "there is no pointer" !</span>
+
+<span style="color: #99968b;">;; </span><span style="color: #99968b;">the function (sb-kernel:get-lisp-obj-address 123) returns the object a</span>
+
+(sb-kernel:get-lisp-obj-address 123) <span style="color: #99968b;">;; </span><span style="color: #99968b;">==&gt; 246  ...?</span>
+<span style="color: #99968b;">;; </span><span style="color: #99968b;">because the binary representation of 123 is:</span>
+(format nil <span style="color: #95e454;">"~b"</span> 123) ==&gt; <span style="color: #95e454;">"1111011"</span>
+<span style="color: #99968b;">;; </span><span style="color: #99968b;">an thus adding the lowtag '0':"1111011" + '0' =&gt; 11110110</span>
+#b11110110 ==&gt; 246 <span style="color: #99968b;">;; </span><span style="color: #99968b;">!!!</span>
+</pre>
+</div>
+
+<p>
+Since this is a rather interesting topic lets detour a little bit further into it along
+the SBCL path.
+</p>
+</div>
+</div>
+
+<div id="outline-container-sec-2-3-2" class="outline-4">
+<h4 id="sec-2-3-2"><span class="section-number-4">2.3.2</span> (SBCL) Why tagged pointers?</h4>
+<div class="outline-text-4" id="text-2-3-2">
+<p>
+First of all because Common Lisp is dynamically typed, the language implementation
+must distinguish between different types (dynamically = at runtime). A solution to
+this is boxing.
+</p>
+
+<p>
+<b>What is Boxing?</b>
+</p>
+<ul class="org-ul">
+<li>Boxing means grouping a value with an overhead with type and optionally size
+information, and referring to it through a pointer.
+</li>
+</ul>
+
+<p>
+<b>What is unboxing then?</b>
+</p>
+<ul class="org-ul">
+<li>The inverse of the above insofar as we get the value that is boxed directly.  Those
+values usually the primitive machine types (int, float, byte), in other language
+also referred to as: primitive types (java), value types (NET, as opposed to
+reference types) or just "unboxed" (in haskell)
+</li>
+</ul>
+
+<p>
+<b>What are the disadvantages of Boxing?</b>
+</p>
+<ol class="org-ol">
+<li>adds overhead to the values
+</li>
+<li>Must be allocated
+</li>
+<li>so it uses up heap space
+</li>
+<li>and thus is garbage collected (or destroyed/freed), if necessary
+</li>
+<li>To access the value, two lookups are needed: (1) getting the pointer address, (2)
+using the pointer address to look up the datum on the lisp heap
+</li>
+</ol>
+
+<p>
+<b>Can we do it without the disadvantags?</b>
+</p>
+<ul class="org-ul">
+<li>Having the cake and eating it too can indeed work, by using the immediate tagged
+pointer representation. Just like fixnums in SBCL are represented by a 64bit word,
+where the least significant bit is 0 and the folloing 63bit represent the fixnum.
+So they're not even pointers (!) but immediate values.
+</li>
+
+<li><b>This way:</b> 
+<ul class="org-ul">
+<li>the first '0' bit is all the overhead we need, no allocation, heap space wasted,
+gc need, and a single lookup of the pointer itself is all we need to get at the
+value.
+</li>
+</ul>
+</li>
+
+<li><b>The trade of is:</b> 
+<ul class="org-ul">
+<li>the value must fit into a 64bit word and needs to relinquish some of its bits for
+the tag (called lowtag in sbcl). These lowtag bits implicate what kind of
+immediate type representation is used (characters are also immediate in sbcl), and
+can still use boxing when necessary by having some of the lowtag bits indicate
+that the pointer truly is to be used to lookup the actual boxed value on the heap.
+</li>
+</ul>
+</li>
+</ul>
 </div>
 </div>
 </div>
 
+
 <div id="outline-container-sec-2-4" class="outline-3">
-<h3 id="sec-2-4"><span class="section-number-3">2.4</span> How long are memeory references valid?</h3>
+<h3 id="sec-2-4"><span class="section-number-3">2.4</span> What does <i>consing</i> mean?</h3>
 <div class="outline-text-3" id="text-2-4">
+<p>
+In Lisp consing refers to allocation of memory in general. It does therefore not just
+mean the use of <b><code>CONS</code></b> or cons cells.
+</p>
+</div>
+</div>
+
+<div id="outline-container-sec-2-5" class="outline-3">
+<h3 id="sec-2-5"><span class="section-number-3">2.5</span> How long are memeory references valid?</h3>
+<div class="outline-text-3" id="text-2-5">
 <p>
 For as long as your code can access it by any means whatsoever. Only once this is not
 the case, the memory becomes <i>potential garbage</i>, and will be freed by the GC somewhere
@@ -338,9 +466,9 @@ in the future.
 </div>
 </div>
 
-<div id="outline-container-sec-2-5" class="outline-3">
-<h3 id="sec-2-5"><span class="section-number-3">2.5</span> How to recycle memory?</h3>
-<div class="outline-text-3" id="text-2-5">
+<div id="outline-container-sec-2-6" class="outline-3">
+<h3 id="sec-2-6"><span class="section-number-3">2.6</span> How to recycle memory?</h3>
+<div class="outline-text-3" id="text-2-6">
 <p>
 Once the GC freed up some space because of the reasons stated under "How long are
 memory references valid", the memory automatically be reclaimed.
@@ -350,7 +478,7 @@ memory references valid", the memory automatically be reclaimed.
 </div>
 </div>
 <div id="postamble" class="status">
-<p class="date">Created: 2017-12-06 Wed 21:45</p>
+<p class="date">Created: 2017-12-08 Fri 00:11</p>
 <p class="creator"><a href="http://www.gnu.org/software/emacs/">Emacs</a> 25.3.1 (<a href="http://orgmode.org">Org</a> mode 8.2.10)</p>
 <p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
 </div>

@@ -16,21 +16,21 @@
 
 
 ** When does allocation /almost/ always occur in Lisp? And what is the exception?
-   Whenever something gets new gets created, that is not *=#'EQ=* to anything that is
+   Whenever something new gets created, that is not *=#'EQ=* to anything that is
    there already!
 
    #+BEGIN_SRC lisp
      (cons 1 2)
      (make-instance 'animal)
-     (1+ most-positive-fixnum) ;; TODO why?
+     (1+ most-positive-fixnum) ;; why? see below
      (read-line)
    #+END_SRC
 
-   + The /notable/ Exception: 
-     1) /in most implementations/ _allocation doesn't occur when_ performing any arithmetic
-	involving *fixnums*, those are integers betwee *=most-negative-fixnum=* and
-	*=most-positive-fixnum=*, and so long the final result are all within this range,
-	you won't have allocated
+   *The /notable/ Exception:*
+   - /in most implementations/ _allocation doesn't occur when_ performing any arithmetic
+     involving *fixnums*, those are integers betwee *=most-negative-fixnum=* and
+     *=most-positive-fixnum=*, and so long the final result are all within this range,
+     you won't have allocated
      
 *** What's the case for SBCL?
     Before consulting the SBCL Documentation the constants are:
@@ -70,7 +70,7 @@
     This concept is known as *Tagged pointers* !!!
     
   *A cool example of the immediate pointer=fixnum concept*
-  *TODO* I think it is worth trying to understand the assembly of this microexample!
+  - *TODO* I think it is worth trying to understand the assembly of this microexample!
 #+BEGIN_SRC lisp
   ;; Fixnums are immediately stored in the pointer information
   
@@ -81,7 +81,7 @@
   ;; ==> ; disassembly for FOO:
   ;; (...)
   ;; The immediate value 14 is in binary #b1110, because 7 is in binary #b111, the 0 is
-  ;; the fixnum immediate pointer tag informatoin!!
+  ;; the fixnum immediate pointer tag information!!
   ;; TODO: I think it is worth trying to understand the assembly of this microexample!
   ; 39:       BF0E000000       MOV EDI, 14                      ; no-arg-parsing entry point
   ; 3E:       488BD1           MOV RDX, RCX
@@ -92,7 +92,82 @@
   ; 4E:       5D               POP RBP
   ; 4F:       C3               RET
 #+END_SRC
-        
+
+  *Another Tagged Pointer Example*
+  #+BEGIN_SRC lisp
+    (setf *x* (1+ most-positive-fixnum)
+          ,*y* (1+ most-positive-fixnum))
+
+    (eq *x* *y*) ;; ==> NIL
+
+    ;; But, use a value that is within the fixnum range:
+    (setf *x* 20
+          ,*y* 20)
+
+    (eq *x* *y*) ;; ==> T
+
+    ;; Becaseu EQ compares pointers, and fixnums are immediately encoded
+    ;; in the pointer, so in effect "there is no pointer" !
+
+    ;; the function (sb-kernel:get-lisp-obj-address 123) returns the object a
+
+    (sb-kernel:get-lisp-obj-address 123) ;; ==> 246  ...?
+    ;; because the binary representation of 123 is:
+    (format nil "~b" 123) ==> "1111011"
+    ;; an thus adding the lowtag '0':"1111011" + '0' => 11110110
+    #b11110110 ==> 246 ;; !!!
+
+  #+END_SRC
+
+  Since this is a rather interesting topic lets detour a little bit further into it along
+  the SBCL path.
+
+*** (SBCL) Why tagged pointers?
+    First of all because Common Lisp is dynamically typed, the language implementation
+    must distinguish between different types (dynamically = at runtime). A solution to
+    this is boxing.
+
+    *What is Boxing?*
+    - Boxing means grouping a value with an overhead with type and optionally size
+      information, and referring to it through a pointer.
+      
+    *What is unboxing then?*
+    - The inverse of the above insofar as we get the value that is boxed directly.  Those
+      values usually the primitive machine types (int, float, byte), in other language
+      also referred to as: primitive types (java), value types (NET, as opposed to
+      reference types) or just "unboxed" (in haskell)
+
+    *What are the disadvantages of Boxing?*
+    1. adds overhead to the values
+    2. Must be allocated
+    3. so it uses up heap space
+    4. and thus is garbage collected (or destroyed/freed), if necessary
+    5. To access the value, two lookups are needed: (1) getting the pointer address, (2)
+       using the pointer address to look up the datum on the lisp heap
+       
+    *Can we do it without the disadvantags?*
+    - Having the cake and eating it too can indeed work, by using the immediate tagged
+      pointer representation. Just like fixnums in SBCL are represented by a 64bit word,
+      where the least significant bit is 0 and the folloing 63bit represent the fixnum.
+      So they're not even pointers (!) but immediate values.
+
+    - *This way:* 
+      * the first '0' bit is all the overhead we need, no allocation, heap space wasted,
+        gc need, and a single lookup of the pointer itself is all we need to get at the
+        value.
+
+    - *The trade of is:* 
+      * the value must fit into a 64bit word and needs to relinquish some of its bits for
+        the tag (called lowtag in sbcl). These lowtag bits implicate what kind of
+        immediate type representation is used (characters are also immediate in sbcl), and
+        can still use boxing when necessary by having some of the lowtag bits indicate
+        that the pointer truly is to be used to lookup the actual boxed value on the heap.
+
+    
+** What does /consing/ mean?
+   In Lisp consing refers to allocation of memory in general. It does therefore not just
+   mean the use of *=CONS=* or cons cells.
+    
 ** How long are memeory references valid?
    For as long as your code can access it by any means whatsoever. Only once this is not
    the case, the memory becomes /potential garbage/, and will be freed by the GC somewhere
