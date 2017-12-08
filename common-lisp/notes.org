@@ -156,7 +156,7 @@
         gc need, and a single lookup of the pointer itself is all we need to get at the
         value.
 
-    - *The trade of is:* 
+    - *The trade off is:* 
       * the value must fit into a 64bit word and needs to relinquish some of its bits for
         the tag (called lowtag in sbcl). These lowtag bits implicate what kind of
         immediate type representation is used (characters are also immediate in sbcl), and
