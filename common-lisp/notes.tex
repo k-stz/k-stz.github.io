@@ -1,0 +1,279 @@
+% Created 2017-12-08 Fr 18:34
+% Intended LaTeX compiler: pdflatex
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{grffile}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{textcomp}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\author{k-stz}
+\date{\today}
+\title{}
+\hypersetup{
+ pdfauthor={k-stz},
+ pdftitle={},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 25.2.50.2 (Org mode 8.3.5)}, 
+ pdflang={English}}
+\begin{document}
+
+\tableofcontents
+
+\section{While reading: "Lisp Outside the Box" by Nick Levine}
+\label{sec:orgaabcaec}
+\url{https://www.nicklevine.org/lisp-book/}
+
+\section{Memory}
+\label{sec:orgc132c28}
+
+\subsection{Which questions we want to answer:}
+\label{sec:orgee885bd}
+\begin{itemize}
+\item how to request to allocate memory?
+\item how long are memory references valid?
+\item how to recycle memory when you done with it?
+\end{itemize}
+
+\subsection{Garbage Collector}
+\label{sec:orgd3e05ab}
+\begin{itemize}
+\item Every Lisp implementation has a GC, no exception
+\item The author calls the garbace collector, GC, a build-in library
+\item Pretty much everything said about the Common Lisp GC, in this chapter of the book,
+applies to all the Lisp GCs, and is also relevant to other language GCs as well
+\end{itemize}
+
+
+\subsection{When does allocation \emph{almost} always occur in Lisp? And what is the exception?}
+\label{sec:org1cb5b86}
+Whenever something new gets created, that is not \textbf{\texttt{\#'EQ}} to anything that is
+there already!
+
+\begin{verbatim}
+(cons 1 2)
+(make-instance 'animal)
+(1+ most-positive-fixnum) ;; why? see below
+(read-line)
+\end{verbatim}
+
+\textbf{The \emph{notable} Exception:}
+\begin{itemize}
+\item \emph{in most implementations} \uline{allocation doesn't occur when} performing any arithmetic
+involving \textbf{fixnums}, those are integers betwee \textbf{\texttt{most-negative-fixnum}} and
+\textbf{\texttt{most-positive-fixnum}}, and so long the final result are all within this range,
+you won't have allocated
+\end{itemize}
+
+\subsubsection{What's the case for SBCL?}
+\label{sec:org95fc672}
+Before consulting the SBCL Documentation the constants are:
+
+\begin{verbatim}
+;; tested on a 64bit machine, with 64bit SBCL version "1.4.1"
+(= most-positive-fixnum 4611686018427387903 (1- (expt 2 62))) ;; ==> T
+(= most-negative-fixnum -4611686018427387904 (- (expt 2 62))) ;; ==> T
+\end{verbatim}
+
+So the range spans 2\(^{\text{63}}\) values! (2\(^{\text{63}}\)-1 + 1, because we count 0), the question then is
+if we have 64bit registers:
+
+\textbf{Why is it 63bits rather than 64!?}
+\begin{itemize}
+\item According to the implementation, atleast one bit, as in this case, is reserved for
+the \textbf{n-fixnum-tag-bits}, which is used \uline{to determine} whether it is a \uline{fixnum or}
+\uline{not}!
+\end{itemize}
+
+\textbf{Then, why do we take a bit, to test if something is a fixnum?}
+\begin{itemize}
+\item Ok, so this is really cool. In 64bit SBCL, every lisp object has type information, this
+information at least for some instances, \uline{is already part of the pointer to them}.
+
+For a fixnum a pointer ending (the least significant bit) with a '0' bit reads the
+other 63bits and interprets them as an immediate fixnum value!!!
+
+If the least significant bit is not a '0' \uline{then} the first 4 bits are interpreted
+as the type! And the rest of the pointer bits are the address to a dword in the lisp
+heap!
+\end{itemize}
+
+\textbf{Why can we take 4bits of the address and use them for type information}?
+\begin{itemize}
+\item Like aren't we sacrificing a lot of addresses this way? This is fixed by having
+data be double word alligned in memory. In sbcl a double word is 2x64=128bits or
+16 bytes. So the address points to those dword aligned 'pages' and, not to 
+the individual 16 bytes within, so the least significant 4bits (that now can't
+point to the bytes) are used to store the type information for this dword lisp-data!
+
+This concept is known as \textbf{Tagged pointers} !!!
+\end{itemize}
+
+\textbf{A cool example of the immediate pointer=fixnum concept}
+\begin{itemize}
+\item \textbf{TODO} I think it is worth trying to understand the assembly of this microexample!
+\end{itemize}
+\begin{verbatim}
+;; Fixnums are immediately stored in the pointer information
+
+(defun foo (x)
+  (+ x 7))
+
+(disassemble 'foo)
+;; ==> ; disassembly for FOO:
+;; (...)
+;; The immediate value 14 is in binary #b1110, because 7 is in binary #b111, the 0 is
+;; the fixnum immediate pointer tag information!!
+;; TODO: I think it is worth trying to understand the assembly of this microexample!
+; 39:       BF0E000000       MOV EDI, 14                      ; no-arg-parsing entry point
+; 3E:       488BD1           MOV RDX, RCX
+; 41:       41BBF004B021     MOV R11D, #x21B004F0             ; GENERIC-+
+; 47:       41FFD3           CALL R11
+; 4A:       488BE5           MOV RSP, RBP
+; 4D:       F8               CLC
+; 4E:       5D               POP RBP
+; 4F:       C3               RET
+\end{verbatim}
+
+\textbf{Another Tagged Pointer Example}
+\begin{verbatim}
+(setf *x* (1+ most-positive-fixnum)
+      *y* (1+ most-positive-fixnum))
+
+(eq *x* *y*) ;; ==> NIL
+
+;; But, use a value that is within the fixnum range:
+(setf *x* 20
+      *y* 20)
+
+(eq *x* *y*) ;; ==> T
+
+;; Becaseu EQ compares pointers, and fixnums are immediately encoded
+;; in the pointer, so in effect "there is no pointer" !
+
+;; the function (sb-kernel:get-lisp-obj-address 123) returns the object a
+
+(sb-kernel:get-lisp-obj-address 123) ;; ==> 246  ...?
+;; because the binary representation of 123 is:
+(format nil "~b" 123) ==> "1111011"
+;; an thus adding the lowtag '0':"1111011" + '0' => 11110110
+#b11110110 ==> 246 ;; !!!
+\end{verbatim}
+
+Since this is a rather interesting topic lets detour a little bit further into it along
+the SBCL path.
+
+\subsubsection{(SBCL) Why tagged pointers?}
+\label{sec:org5dcfda4}
+First of all because Common Lisp is dynamically typed, the language implementation
+must distinguish between different types (dynamically = at runtime). A solution to
+this is boxing.
+
+\textbf{What is Boxing?}
+\begin{itemize}
+\item Boxing means grouping a value with an overhead with type and optionally size
+information, and referring to it through a pointer.
+\end{itemize}
+
+\textbf{What is unboxing then?}
+\begin{itemize}
+\item The inverse of the above insofar as we get the value that is boxed directly.  Those
+values usually the primitive machine types (int, float, byte), in other language
+also referred to as: primitive types (java), value types (NET, as opposed to
+reference types) or just "unboxed" (in haskell)
+\end{itemize}
+
+\textbf{What are the disadvantages of Boxing?}
+\begin{enumerate}
+\item adds overhead to the values
+\item Must be allocated
+\item so it uses up heap space
+\item and thus is garbage collected (or destroyed/freed), if necessary
+\item To access the value, two lookups are needed: (1) getting the pointer address, (2)
+using the pointer address to look up the datum on the lisp heap
+\end{enumerate}
+
+\textbf{Can we do it without the disadvantags?}
+\begin{itemize}
+\item Having the cake and eating it too can indeed work, by using the immediate tagged
+pointer representation. Just like fixnums in SBCL are represented by a 64bit word,
+where the least significant bit is 0 and the folloing 63bit represent the fixnum.
+So they're not even pointers (!) but immediate values.
+
+\item \textbf{This way:} 
+\begin{itemize}
+\item the first '0' bit is all the overhead we need, no allocation, heap space wasted,
+gc need, and a single lookup of the pointer itself is all we need to get at the
+value.
+\end{itemize}
+
+\item \textbf{The trade off is:} 
+\begin{itemize}
+\item the value must fit into a 64bit word and needs to relinquish some of its bits for
+the tag (called lowtag in sbcl). These lowtag bits implicate what kind of
+immediate type representation is used (characters are also immediate in sbcl), and
+can still use boxing when necessary by having some of the lowtag bits indicate
+that the pointer truly is to be used to lookup the actual boxed value on the heap.
+\end{itemize}
+\end{itemize}
+
+
+\subsection{What does \emph{consing} mean?}
+\label{sec:orgd115c89}
+In Lisp consing refers to allocation of memory in general. It does therefore not just
+mean the use of \textbf{\texttt{CONS}} or cons cells.
+
+\subsection{How long are memeory references valid?}
+\label{sec:org217422e}
+For as long as your code can access it by any means whatsoever. Only once this is not
+the case, the memory becomes \emph{potential garbage}, and will be freed by the GC somewhere
+in the future.
+
+\subsection{How to recycle memory?}
+\label{sec:org8035e3d}
+Once the GC freed up some space because of the reasons stated under "How long are
+memory references valid", the memory automatically be reclaimed.
+
+\subsection{The Stack}
+\label{sec:org7d0f9ac}
+
+\subsubsection{What is the Stack used for in Lisp?}
+\label{sec:orgc513d93}
+At the bottom of the Stack is where the program started, usually the main() function
+and its local environment. Now each function call adds an element on top of the stack
+which holds the local variables and the return address of the function call. Such that
+on success the stack is popped and the program continues working from the calling
+function, and its enviornment. Maybe adding some more data to it, from the call.
+
+But the crucial thing is, that the local memory of a function call, only exist in the
+stack frame. They don't have to be heap allocated!  This is typically true for all the 
+(let ((variables in)) a function body).
+
+Another bonus is that the top of the stack can be extended (push) very cheaply. Thus
+its easy to give the program as much temporary storage, as it needs.
+
+\subsubsection{Short history}
+\label{sec:orgbe4426f}
+TODO verify, exapand on this: The Stack and heap where originally invented for Lisp
+back in the 1950!  Over the years some languages got by perfectly well without a heap,
+and with only temporary memory.
+
+\subsubsection{How can we tell the compiler, a variable is not accessible once a functions exits?}
+\label{sec:org896e02b}
+By declaring it to have \textbf{\texttt{dynamic-extent}}
+\begin{verbatim}
+(let* ((x (cons nil nil))
+  (y x))
+  (declare (dynamic-extent x))
+  ;; (...)
+  )
+\end{verbatim}
+\end{document}

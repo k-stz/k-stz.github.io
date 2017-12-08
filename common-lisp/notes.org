@@ -176,3 +176,34 @@
 ** How to recycle memory?
    Once the GC freed up some space because of the reasons stated under "How long are
    memory references valid", the memory automatically be reclaimed.
+
+** The Stack
+
+*** What is the Stack used for in Lisp?
+    At the bottom of the Stack is where the program started, usually the main() function
+    and its local environment. Now each function call adds an element on top of the stack
+    which holds the local variables and the return address of the function call. Such that
+    on success the stack is popped and the program continues working from the calling
+    function, and its enviornment. Maybe adding some more data to it, from the call.
+
+    But the crucial thing is, that the local memory of a function call, only exist in the
+    stack frame. They don't have to be heap allocated!  This is typically true for all the 
+    (let ((variables in)) a function body).
+
+    Another bonus is that the top of the stack can be extended (push) very cheaply. Thus
+    its easy to give the program as much temporary storage, as it needs.
+
+*** How can we tell the compiler to /stack allocate/ a variable?
+    By declaring it to have *=dynamic-extent=*, but like with all declaration,
+    the compiler is not forced to do that.
+    #+BEGIN_SRC lisp
+      (let* ((x (cons nil nil))
+    	(y x))
+        (declare (dynamic-extent x))
+        ;; (...)
+        )
+    #+END_SRC
+    
+*** What is meant by stack consing data structure?
+    The implementation documentation should list the data types for which it
+    supports stack consing (stack allocation)

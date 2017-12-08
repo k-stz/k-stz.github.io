@@ -1,0 +1,5 @@
+(let ((x (cons nil nil))
+      (y x))
+  (declare (dynamic-extend x))
+  ;; (...)
+  )
