@@ -207,3 +207,52 @@
 *** What is meant by stack consing data structure?
     The implementation documentation should list the data types for which it
     supports stack consing (stack allocation)
+
+
+** What do we mean by "/roots/" in regard to GCs?
+   Roots are the starting points for the GC's walk over the lisp-heap.
+   In Lisp the Stack is also part of the heap! Root is probably used
+   because the GC builds a tree of accessible objects, and starts
+   at its roots at the local, static variables on that stack.
+
+** What is a Weak Reference? 
+   A reference (pointer) to an object, but with the difference that if it is ignored by
+   the GC. So if the weak reference is the only reference to an object, the object is
+   potential garbage and will be replaced by nil on the next GC run.
+
+*** How to use in SBCL
+    #+BEGIN_SRC lisp
+      ;; in sbcl we use weak pointers with:
+      (sb-ext:make-weak-pointer 123.45) ==> #<weak pointer: 123.45>
+      ;; and we dereference them with
+      (sb-ext:weak-pointer-value *) ;; ==> 123.45
+                                    ;; ==>      T ;; 2nd value indicating if already GC'd
+    #+END_SRC
+   
+*** TODO So what's the point of Weak References, or "weakness"?
+    We can use them to implement Caches, such that if the value in the caches are no
+    longer needed they will be automatically GC'd in the background. Thus solving
+    issues with leaking memory.
+
+    TODO: add more use cases and examples
+
+
+
+** What is a finalizer? Give an example
+   Functions that can run when an object has become potential garbage and can be
+   collected, the finalizer can then be used to reclaim the external resources associated
+   with the potential garbage. They're basically the inverse of initiation. But according
+   to the author there is no promise whether they will run, or not.
+
+   - *Example:* when an open file-stream is GCed then one usually also wants to release
+     the underlying filesystem handle. This can be done using finalization.
+
+*** SBCL example of finalizer   
+    #+BEGIN_SRC lisp 
+      ;; (sb-ext:finalize <object> fn &key don-tsave)
+      (defvar *a* (1+ most-positive-fixnum))
+      (sb-ext:finalize *a* (lambda () (print "Commencing Finalization!")))
+      (unintern '*a*)
+      (gc) ;; after this the finalizer on *a* gets invoked!
+      ;; ==> "Commencing Finalization!"
+    #+END_SRC
